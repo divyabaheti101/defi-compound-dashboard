@@ -1,4 +1,4 @@
-import Compound from "@compound-finance/compound-js";
+import Compound, { comp } from "@compound-finance/compound-js";
 
 const provider = 'https://mainnet.infura.io/v3/fee8dd8de68a4101a446b3b41ed1c065';
 const comptroller = Compound.util.getAddress(Compound.Comptroller);
@@ -18,4 +18,54 @@ async function calculateSupplyAPY(cToken) {
     );
 
     return 100 * (Math.pow((supplyRatePerBlock / ethMantissa) * blocksPerDay + 1, daysPerYear) - 1);
+}
+
+
+async function calculateCompAPY(cToken, ticker, underlyingDecimals ) {
+    let compSpeed = await Compound.eth.read(
+        comptroller,
+        'function compSpeeds(address) view returns (uint256)',
+        [cToken],
+        { provider }
+    );
+
+    let compPrice = await Compound.eth.read(
+        opf,
+        'function price(string) view returns (uint256)',
+        [Compound.COMP],
+        { provider }
+    );
+
+    let underlyingPrice = await Compound.eth.read(
+        opf,
+        'function price(string) view returns (uint256)',
+        [ticker],
+        { provider }
+    );
+
+    let totalSupply = await Compound.eth.read(
+        cToken,
+        'function totalSupply() view returns (uint256)',
+        [],
+        { provider }
+    );
+
+    let exhchangeRate = await Compound.eth.read(
+        cToken,
+        'function exchangeRateCurrent() view returns (uint256)',
+        [],
+        { provider }
+    );
+
+    compSpeed = compSpeed / ethMantissa;
+    compPrice = compPrice / 1e6;
+    underlyingPrice = underlyingPrice / 1e6;
+    exhchangeRate = +exhchangeRate.toString() / ethMantissa;
+    totalSupply = +totalSupply.toString() * exhchangeRate * underlyingPrice / Math.pow(10, underlyingDecimals);
+
+    const compPerDay = compSpeed * blocksPerDay;
+
+    return compPrice * compPerDay * daysPerYear * 100 / totalSupply;
+
+    
 }
